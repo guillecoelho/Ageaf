@@ -77,3 +77,32 @@ test('GET /v1/jobs/:id/events includes CORS headers', async () => {
     await server.close();
   }
 });
+
+test('rejects foreign origins and non-loopback Host headers', async () => {
+  process.env.AGEAF_START_SERVER = 'false';
+  const { buildServer, isLoopbackHost } = await import('../src/server.js');
+  const server = buildServer();
+  try {
+    const evil = await server.inject({
+      method: 'POST',
+      url: '/v1/jobs',
+      headers: { origin: 'https://evil.example', 'content-type': 'application/json' },
+      payload: { action: 'chat' },
+    });
+    assert.equal(evil.statusCode, 403);
+
+    const rebound = await server.inject({
+      method: 'GET',
+      url: '/v1/health',
+      headers: { host: 'evil.example:3210' },
+    });
+    assert.equal(rebound.statusCode, 403);
+
+    assert.equal(isLoopbackHost('127.0.0.1:3210'), true);
+    assert.equal(isLoopbackHost('[::1]:3210'), true);
+    assert.equal(isLoopbackHost('localhost'), true);
+    assert.equal(isLoopbackHost('127.0.0.1.evil.example'), false);
+  } finally {
+    await server.close();
+  }
+});
