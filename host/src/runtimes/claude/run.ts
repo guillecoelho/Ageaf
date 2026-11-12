@@ -16,6 +16,12 @@ import type { SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { buildReplaceRangePatchesFromFileUpdates } from '../../patch/fileUpdate.js';
 import { sendCompactCommand } from '../../compaction/sendCompact.js';
 import { getClaudeSessionCwd } from './cwd.js';
+import {
+  forgetActiveDocuments,
+  getActiveDocument,
+  prepareActiveDocumentBlock,
+  rememberActiveDocument,
+} from '../../context/activeDocument.js';
 
 type EmitEvent = (event: JobEvent) => void;
 
@@ -284,12 +290,15 @@ export async function runClaudeJob(
   const action = payload.action ?? 'chat';
   const runtimeStatus = getClaudeRuntimeStatus(payload.runtime?.claude);
   const message = getUserMessage(payload.context);
+  const conversationId = payload.runtime?.claude?.conversationId;
+  const documentKey = conversationId ? `claude:${conversationId}` : undefined;
 
   const isDirectCompactRequest =
     action === 'chat' && typeof message === 'string' && message.trim() === '/compact';
   if (isDirectCompactRequest) {
     try {
       await sendCompactCommand('claude', payload, emitEvent);
+      forgetActiveDocuments(documentKey);
       emitEvent({ event: 'done', data: { status: 'ok' } });
     } catch (error) {
       emitEvent({
@@ -482,9 +491,10 @@ If asked about the model/runtime, use this note and do not guess.`;
   }
 
   const basePrompt = baseParts.join('\n\n');
-  const promptText = contextForPrompt
-    ? `${basePrompt}\\n\\n${runtimeNote}\\n\\nAction: ${action}\\nContext:\\n${JSON.stringify(contextForPrompt, null, 2)}`
-    : `${basePrompt}\\n\\n${runtimeNote}\\n\\nAction: ${action}`;
+  const promptHead = contextForPrompt
+    ? `${basePrompt}\n\n${runtimeNote}\n\nAction: ${action}\nContext:\n${JSON.stringify(contextForPrompt, null, 2)}`
+    : `${basePrompt}\n\n${runtimeNote}\n\nAction: ${action}`;
+  const activeDocument = getActiveDocument(payload.context);
 
   const safety: CommandBlocklistConfig = {
     enabled: payload.userSettings?.enableCommandBlocklist ?? false,
@@ -498,6 +508,8 @@ If asked about the model/runtime, use this note and do not guess.`;
   };
 
   const runTurn = async () => {
+    const activeDocBlock = prepareActiveDocumentBlock(documentKey, activeDocument);
+    const promptText = activeDocBlock ? `${promptHead}\n\n${activeDocBlock}` : promptHead;
     let doneEvent: JobEvent = { event: 'done', data: { status: 'ok' } };
     const wrappedEmit: EmitEvent = (event) => {
       if (event.event === 'done') {
@@ -518,6 +530,10 @@ If asked about the model/runtime, use this note and do not guess.`;
       overleafMessage: hasOverleafFileBlocks ? messageWithAttachments : undefined,
     });
 
+    const ok = normalizeDoneStatus((doneEvent.data as any)?.status) === 'ok';
+    if (result.compacted) forgetActiveDocuments(documentKey);
+    else if (ok) rememberActiveDocument(documentKey, activeDocument);
+
     return { doneEvent, ...result };
   };
 
@@ -534,6 +550,7 @@ If asked about the model/runtime, use this note and do not guess.`;
     emitTrace('Claude: context overflow detected, compacting and retrying once');
     try {
       await sendCompactCommand('claude', payload, emitEvent);
+      forgetActiveDocuments(documentKey);
       emitTrace('Claude: retrying request after compaction');
       turn = await runTurn();
       status = normalizeDoneStatus((turn.doneEvent.data as any)?.status);

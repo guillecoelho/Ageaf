@@ -31,6 +31,8 @@ interface SelectionResponse {
   head: number;
   lineFrom: number;
   lineTo: number;
+  /** Full text of the open file; the host decides whether the model needs it again. */
+  document: string;
 }
 
 interface ApplyPatchRequest {
@@ -401,6 +403,7 @@ function onSelectionRequest(event: Event) {
     head,
     lineFrom: state.doc.lineAt(from).number,
     lineTo: state.doc.lineAt(inclusiveEnd).number,
+    document: state.sliceDoc(0, state.doc.length),
   };
 
   window.dispatchEvent(new CustomEvent(RESPONSE_EVENT, { detail: response }));

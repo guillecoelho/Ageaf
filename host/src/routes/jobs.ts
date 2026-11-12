@@ -45,6 +45,7 @@ type JobRequestPayload = {
     surroundingBefore?: string;
     surroundingAfter?: string;
     compileLog?: string;
+    activeDocument?: { path: string; content: string };
     message?: string;
     images?: Array<{
       id: string;

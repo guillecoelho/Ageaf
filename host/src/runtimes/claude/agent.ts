@@ -166,7 +166,12 @@ function extractJsonObject(value: string): unknown {
   }
 }
 
-type RunQueryResult = { resultText: string | null; emittedPatchFiles: Set<string> };
+type RunQueryResult = {
+  resultText: string | null;
+  emittedPatchFiles: Set<string>;
+  /** The SDK compacted the session during this turn (earlier context was summarized). */
+  compacted?: boolean;
+};
 
 function normalizeSessionId(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
@@ -533,7 +538,11 @@ async function runQuery(
   // Accumulator for input_json_delta chunks keyed by content block index
   const pendingToolInputs = new Map<number, { toolId: string; toolName: string; chunks: string[]; hadStartInput: boolean }>();
 
+  let compacted = false;
   for await (const message of response) {
+    if (message.type === 'system' && (message as { subtype?: string }).subtype === 'compact_boundary') {
+      compacted = true;
+    }
     const sessionId = extractSessionIdFromMessage(message);
     if (sessionId) {
       setClaudeSdkSessionId(runtime.conversationId, sessionId);
@@ -768,7 +777,7 @@ async function runQuery(
     emitEvent({ event: 'done', data: { status: 'ok' } });
   }
 
-  return { resultText, emittedPatchFiles };
+  return { resultText, emittedPatchFiles, compacted };
 }
 
 export async function runClaudeStructuredPatch(input: StructuredPatchInput) {

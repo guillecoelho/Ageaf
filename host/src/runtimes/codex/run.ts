@@ -1,4 +1,10 @@
 import { execFile } from 'node:child_process';
+import {
+  forgetActiveDocuments,
+  getActiveDocument,
+  prepareActiveDocumentBlock,
+  rememberActiveDocument,
+} from '../../context/activeDocument.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -1152,7 +1158,23 @@ export async function runCodexJob(
   const sessionCwd = getCodexSessionCwd(threadId);
   const projectDir = writeProjectFilesToDisk(pf, sessionCwd);
 
-  const prompt = buildPrompt(payload, contextForPrompt, projectDir);
+  // Active document: full on the thread's first turn, diffs afterwards (see context/activeDocument.ts).
+  const activeDocument = getActiveDocument(payload.context);
+  const activeDocBlock = prepareActiveDocumentBlock(threadId ? `codex:${threadId}` : undefined, activeDocument);
+  const basePrompt = buildPrompt(payload, contextForPrompt, projectDir);
+  const prompt = activeDocBlock ? `${basePrompt}\n\n${activeDocBlock}` : basePrompt;
+  let compactedThisTurn = false;
+  const emitJobEvent = emitEvent;
+  // Every successful 'done' (there are several exit paths below) records what the model saw.
+  emitEvent = (event) => {
+    if (event.event === 'done' && (event.data as any)?.status === 'ok') {
+      const doneThreadId = (event.data as any)?.threadId ?? threadId;
+      const key = doneThreadId ? `codex:${doneThreadId}` : undefined;
+      if (compactedThisTurn) forgetActiveDocuments(key);
+      else rememberActiveDocument(key, activeDocument);
+    }
+    emitJobEvent(event);
+  };
   const turnTimeoutMs = getCodexTurnTimeoutMs();
   emitTrace('Codex: prepared prompt', {
     action: payload.action ?? 'chat',
@@ -1420,6 +1442,7 @@ export async function runCodexJob(
     source?: unknown
   ) => {
     compactionLifecycleSeen = true;
+    if (phase === 'compaction_complete') compactedThisTurn = true;
     const sourceToolId = extractLifecycleToolId(source);
     const fallbackToolId =
       activeCompactionToolId ??

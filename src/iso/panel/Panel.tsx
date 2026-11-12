@@ -6992,6 +6992,11 @@ const Panel = () => {
 
       const sharedContext = {
         ...contextPayload,
+        // Sent every turn over localhost; the host only puts it in the prompt once
+        // per conversation and then sends diffs (host/src/context/activeDocument.ts).
+        ...(typeof selection?.document === 'string' && typeof selection?.activeName === 'string'
+          ? { activeDocument: { path: selection.activeName, content: selection.document } }
+          : {}),
         ...(messageImages
           ? {
             images: messageImages.map((image) => ({
