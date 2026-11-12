@@ -19,7 +19,7 @@ export function getActiveDocument(context: unknown): ActiveDocument | null {
 }
 
 const EDIT_HINT =
-  'To edit it, emit an `ageaf-patch` block with { "kind":"replaceRangeInFile", "filePath":"<path>", "expectedOldText":"<exact current text>", "text":"<new text>" }.';
+  'To edit it, emit one `ageaf-patch` block per change with { "kind":"replaceRangeInFile", "filePath":"<path>", "expectedOldText":"<exact current text>", "text":"<new text>" }; several blocks per response are fine.';
 
 function fullBlock(doc: ActiveDocument) {
   return [
