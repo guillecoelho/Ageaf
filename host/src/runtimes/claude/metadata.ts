@@ -16,13 +16,16 @@ const FALLBACK_MODELS: ModelInfo[] = [
     description: 'Most capable for complex work',
   },
   {
+    value: 'fable',
+    displayName: 'Fable',
+    description: 'For your toughest challenges',
+  },
+  {
     value: 'haiku',
     displayName: 'Haiku',
     description: 'Fastest for quick answers',
   },
 ];
-
-const KNOWN_MODEL_TOKENS = ['sonnet', 'opus', 'haiku'];
 
 function buildRuntimeEnv(runtime?: ClaudeRuntimeConfig) {
   const customEnv = parseEnvironmentVariables(runtime?.envVars ?? '');
@@ -46,30 +49,15 @@ function buildRuntimeEnv(runtime?: ClaudeRuntimeConfig) {
   };
 }
 
-function matchesToken(model: ModelInfo, token: string) {
-  const lowerToken = token.toLowerCase();
-  return (
-    model.value.toLowerCase().includes(lowerToken) ||
-    model.displayName.toLowerCase().includes(lowerToken)
+// Keep the family aliases (opus, sonnet, fable, haiku): they always resolve to the
+// newest version and the SDK labels them with it ("Opus 5.5"). Pinned ids
+// (claude-opus-4-8, ...) and the 'default' entry are dropped to keep the picker short.
+// ponytail: add pinned versions behind a setting if someone needs an older model.
+export function filterKnownModels(models: ModelInfo[]) {
+  const aliases = models.filter(
+    (model) => model.value !== 'default' && !model.value.startsWith('claude-')
   );
-}
-
-function filterKnownModels(models: ModelInfo[]) {
-  const filtered: ModelInfo[] = [];
-
-  for (const token of KNOWN_MODEL_TOKENS) {
-    const match = models.find((model) => matchesToken(model, token));
-    if (match) {
-      filtered.push(match);
-    } else {
-      const fallback = FALLBACK_MODELS.find((model) => matchesToken(model, token));
-      if (fallback) {
-        filtered.push(fallback);
-      }
-    }
-  }
-
-  return filtered.length > 0 ? filtered : FALLBACK_MODELS;
+  return aliases.length > 0 ? aliases : FALLBACK_MODELS;
 }
 
 export async function getClaudeSupportedModels(

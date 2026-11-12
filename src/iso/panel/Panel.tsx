@@ -582,6 +582,7 @@ async function mapWithConcurrency<T, R>(
 const MODEL_DISPLAY = {
   opus: { label: 'Opus', description: 'Most capable for complex work' },
   sonnet: { label: 'Sonnet', description: 'Best for everyday task' },
+  fable: { label: 'Fable', description: 'For your toughest challenges' },
   haiku: { label: 'Haiku', description: 'Fastest for quick answers' },
 } as const;
 
@@ -590,6 +591,7 @@ type KnownModelToken = keyof typeof MODEL_DISPLAY;
 const CLAUDE_FALLBACK_MODELS: RuntimeModel[] = [
   { value: 'opus', displayName: 'Opus', description: 'Most capable for complex work', isDefault: false },
   { value: 'sonnet', displayName: 'Sonnet', description: 'Best for everyday task', isDefault: true },
+  { value: 'fable', displayName: 'Fable', description: 'For your toughest challenges', isDefault: false },
   { value: 'haiku', displayName: 'Haiku', description: 'Fastest for quick answers', isDefault: false },
 ];
 
@@ -5279,6 +5281,7 @@ const Panel = () => {
     if (!normalized) return null;
     if (normalized.includes('opus')) return 'opus' as const;
     if (normalized.includes('sonnet')) return 'sonnet' as const;
+    if (normalized.includes('fable')) return 'fable' as const;
     if (normalized.includes('haiku')) return 'haiku' as const;
     return null;
   };
@@ -5292,7 +5295,7 @@ const Panel = () => {
   };
 
   const getOrderedRuntimeModels = () => {
-    const ordered = (['opus', 'sonnet', 'haiku'] as const)
+    const ordered = (['opus', 'sonnet', 'fable', 'haiku'] as const)
       .map((token) => findRuntimeModel(token))
       .filter((model): model is RuntimeModel => Boolean(model));
     return ordered.length > 0 ? ordered : runtimeModels;
@@ -5326,7 +5329,8 @@ const Panel = () => {
     const token =
       getKnownModelToken(model.value) ?? getKnownModelToken(model.displayName);
     if (token && token in MODEL_DISPLAY) {
-      return MODEL_DISPLAY[token].label;
+      // The SDK labels aliases with their version ("Opus 5.5"); keep that.
+      return model.displayName || MODEL_DISPLAY[token].label;
     }
     const displayName = model.displayName ?? DEFAULT_MODEL_LABEL;
     // Format: gpt -> GPT, codex -> Codex
@@ -5339,7 +5343,7 @@ const Panel = () => {
     const token =
       getKnownModelToken(model.value) ?? getKnownModelToken(model.displayName);
     if (token && token in MODEL_DISPLAY) {
-      return MODEL_DISPLAY[token].description;
+      return model.description || MODEL_DISPLAY[token].description;
     }
     return model.description ?? '';
   };
@@ -5360,7 +5364,8 @@ const Panel = () => {
     const resolvedModel = currentModel ?? DEFAULT_MODEL_VALUE;
     const resolvedToken = getKnownModelToken(resolvedModel);
     if (resolvedToken && resolvedToken in MODEL_DISPLAY) {
-      return MODEL_DISPLAY[resolvedToken].label;
+      const runtimeMatch = findRuntimeModel(resolvedToken);
+      return runtimeMatch?.displayName || MODEL_DISPLAY[resolvedToken].label;
     }
     const match =
       runtimeModels.find((model) => model.value === resolvedModel) ??

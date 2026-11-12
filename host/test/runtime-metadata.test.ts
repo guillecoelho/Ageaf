@@ -30,13 +30,14 @@ test('GET /v1/runtime/claude/metadata returns models and thinking modes', async 
     assert.ok(body.models.length > 0);
     assert.deepEqual(
       body.models.map((model) => model.displayName),
-      ['Sonnet', 'Opus', 'Haiku']
+      ['Sonnet', 'Opus', 'Fable', 'Haiku']
     );
     assert.deepEqual(
       body.models.map((model) => model.description),
       [
         'Best for everyday task',
         'Most capable for complex work',
+        'For your toughest challenges',
         'Fastest for quick answers',
       ]
     );
@@ -50,4 +51,15 @@ test('GET /v1/runtime/claude/metadata returns models and thinking modes', async 
     else process.env.AGEAF_CLAUDE_MOCK = previousMock;
     await server.close();
   }
+});
+
+test('filterKnownModels keeps family aliases, drops default and pinned ids', async () => {
+  const { filterKnownModels } = await import('../src/runtimes/claude/metadata.js');
+  const result = filterKnownModels([
+    { value: 'default', displayName: 'Default', description: '' },
+    { value: 'opus', displayName: 'Opus 5.5', description: '' },
+    { value: 'fable', displayName: 'Fable 5.2', description: '' },
+    { value: 'claude-opus-4-8', displayName: 'Opus 4.8', description: '' },
+  ] as any);
+  assert.deepEqual(result.map((m: { value: string }) => m.value), ['opus', 'fable']);
 });
