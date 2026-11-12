@@ -129,6 +129,18 @@ export function getStructuredOutputFormat(name?: string): OutputFormat | null {
   return null;
 }
 
+// ponytail: the panel still sends the legacy token budget of the selected mode;
+// map it to an effort level instead of renaming the field across the wire.
+export function effortFromThinkingTokens(
+  tokens: number | null | undefined
+): 'low' | 'medium' | 'high' | 'xhigh' | undefined {
+  if (typeof tokens !== 'number' || tokens <= 0) return undefined; // "Auto": model default
+  if (tokens <= 1024) return 'low';
+  if (tokens <= 4096) return 'medium';
+  if (tokens <= 8192) return 'high';
+  return 'xhigh';
+}
+
 function stripJsonCodeFences(value: string) {
   const trimmed = value.trim();
   if (!trimmed.startsWith('```')) return trimmed;
@@ -254,8 +266,11 @@ async function runQuery(
     prompt,
     options: {
       ...(configuredModel ? { model: configuredModel } : {}),
-      ...(typeof runtime.maxThinkingTokens === 'number'
-        ? { maxThinkingTokens: runtime.maxThinkingTokens }
+      // Current models reject fixed thinking budgets; adaptive thinking + effort replaces them.
+      // 'summarized' keeps reasoning visible in the panel (the default on new models is empty text).
+      thinking: { type: 'adaptive', display: 'summarized' },
+      ...(effortFromThinkingTokens(runtime.maxThinkingTokens)
+        ? { effort: effortFromThinkingTokens(runtime.maxThinkingTokens) }
         : {}),
       cwd: getClaudeSessionCwd(runtime),
       continue: true,

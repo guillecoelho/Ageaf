@@ -7,11 +7,11 @@ export type ThinkingMode = {
 };
 
 const THINKING_MODES: ThinkingMode[] = [
-  { id: 'off', label: 'Off', maxThinkingTokens: null },
+  { id: 'off', label: 'Auto', maxThinkingTokens: null },
   { id: 'low', label: 'Low', maxThinkingTokens: 1024 },
   { id: 'medium', label: 'Medium', maxThinkingTokens: 4096 },
   { id: 'high', label: 'High', maxThinkingTokens: 8192 },
-  { id: 'ultra', label: 'Ultra', maxThinkingTokens: 16384 },
+  { id: 'ultra', label: 'X-High', maxThinkingTokens: 16384 },
 ];
 
 type Preferences = {
