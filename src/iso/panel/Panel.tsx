@@ -6994,8 +6994,14 @@ const Panel = () => {
         ...contextPayload,
         // Sent every turn over localhost; the host only puts it in the prompt once
         // per conversation and then sends diffs (host/src/context/activeDocument.ts).
-        ...(typeof selection?.document === 'string' && typeof selection?.activeName === 'string'
-          ? { activeDocument: { path: selection.activeName, content: selection.document } }
+        // activeName comes from Overleaf's DOM and can be null when its markup changes.
+        ...(typeof selection?.document === 'string' && selection.document.length > 0
+          ? {
+            activeDocument: {
+              path: selection.activeName || 'active-file.tex',
+              content: selection.document,
+            },
+          }
           : {}),
         ...(messageImages
           ? {
