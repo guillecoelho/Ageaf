@@ -8,6 +8,7 @@
     "prewatch": "node scripts/generate-skills-manifest.cjs",
     "watch": "webpack --mode=development --watch --config config/webpack.config.js",
     "dev": "./scripts/dev.sh",
+    "install-native": "./scripts/install-native-host.sh",
     "build": "webpack --mode=production --config config/webpack.config.js",
     "pack": "node pack.js",
     "repack": "npm run build && npm run pack",

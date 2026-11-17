@@ -120,6 +120,45 @@ BYOK supports **1,000+ models** across 20+ providers. Here is a highlight of sup
    - Select the `build/` directory from this repository
    - After making changes, click the reload icon on the extension card, then refresh your Overleaf tab
 
+### Run without terminals (native host from source, macOS)
+
+Chrome can start the host on demand through Native Messaging, so you don't need to keep
+`npm run watch` or `npm run dev` running just to use Ageaf.
+
+1. Build the extension once (production builds use the native transport by default):
+   ```bash
+   npm install
+   npm run build
+   ```
+2. Load `build/` as an unpacked extension (see above) and copy the Ageaf **ID** shown in
+   `chrome://extensions`.
+3. Register this checkout's host with Chrome:
+   ```bash
+   ./scripts/install-native-host.sh <extension-id>   # or: npm run install-native
+   ```
+   Without an ID the script tries to detect it from your browser profiles, but macOS often
+   blocks reading browser data, so passing the ID is the reliable path.
+4. Reload Ageaf in `chrome://extensions`, refresh Overleaf, and check that the panel
+   settings use the **Native** transport (a previously saved `http` setting wins over the
+   build default).
+
+What the script does:
+- Writes a launcher at `~/.ageaf/native-host.sh` that runs `host/src/native.ts` with `tsx`
+  (no host build step) and captures your current `PATH` so the host can find `claude`.
+- Writes `com.ageaf.host.json` into the `NativeMessagingHosts` folder of each installed
+  browser (Chrome, Brave, Chromium, Arc).
+- Sends host errors to `~/.ageaf/native-host.log`.
+
+Notes:
+- Host code changes apply the next time Chrome starts the host; reload the extension to
+  force it. Extension code changes still need `npm run build` (or `npm run watch`) plus a
+  reload.
+- Rerun the script if you move the repo, load the extension from another path (the ID
+  changes), or install a new Node version.
+- If the script prints `no browser manifest was written`, allow your terminal under
+  **System Settings → Privacy & Security → App Management** (or Full Disk Access) and rerun.
+- This replaces the Homebrew `ageaf-host` manifest, since both register `com.ageaf.host`.
+
 ## How to Update Ageaf
 
 ### If you run Ageaf from source (this repo)
